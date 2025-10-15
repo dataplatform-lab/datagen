@@ -1,5 +1,7 @@
 # Description
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/8993fda5ad46424c99ca246060bbf388)](https://app.codacy.com/gh/dataplatform-lab/datagen?utm_source=github.com&utm_medium=referral&utm_content=dataplatform-lab/datagen&utm_campaign=Badge_Grade)
+
 Big Data Generator for testing
 
 ## Run on local
