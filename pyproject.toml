@@ -27,9 +27,12 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "black>=25.9.0",
     "ipython>=9.6.0",
+    "pip>=25.2",
+    "pre-commit>=4.3.0",
+    "ruff>=0.14.0",
+    "pyright>=1.1.404",
+    "bandit[baseline,sarif,toml]>=1.8.6",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
-    "ruff>=0.14.0",
 ]

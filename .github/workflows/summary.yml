@@ -6,12 +6,13 @@ on:
 
 jobs:
   summary:
-    runs-on: ubuntu-latest
     permissions:
       issues: write
       models: read
       contents: read
 
+    name: Summarize new issues
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

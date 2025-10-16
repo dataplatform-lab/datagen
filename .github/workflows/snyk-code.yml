@@ -13,17 +13,14 @@
 name: Snyk Code
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: ["main"]
   workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
   schedule:
-    - cron: "38 9 * * 5"
-
-permissions:
-  contents: read
+    - cron: "30 18 * * 3"
 
 jobs:
   snyk-code:
@@ -31,8 +28,8 @@ jobs:
       contents: read
       security-events: write
       actions: read
+    name: Snyk Code
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v3

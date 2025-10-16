@@ -1,0 +1,46 @@
+name: Trivy FS Scan
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: "30 18 * * 5"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  trivy-fs:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    name: Trivy FS Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build an image from Dockerfile
+        run: docker build -t docker.io/bluezery/datagen:${{ github.sha }} .
+      - name: Run Trivy vulnerability scanner in fs mode
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: "docker.io/bluezery/datagen:${{ github.sha }}"
+          exit-code: "1"
+          scanners: "vuln,misconfig,secret,license"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          scan-type: "fs"
+          skip-dirs: ".venv"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"

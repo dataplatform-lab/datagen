@@ -14,16 +14,14 @@
 name: Snyk Container
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
   schedule:
-    - cron: "17 13 * * 4"
-
-permissions:
-  contents: read
+    - cron: "30 19 * * 3"
 
 jobs:
   snyk-container:
@@ -32,7 +30,6 @@ jobs:
       security-events: write
       actions: read
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v3

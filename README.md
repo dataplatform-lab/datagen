@@ -4,6 +4,84 @@
 
 Big Data Generator for testing
 
+## Pre-requisites
+
+```bash
+# Install uv and dependencies
+brew install uv
+uv sync
+
+# Install pre-commit
+pre-commit install
+
+# Install trivy
+brew install trivy
+
+# Install gitleaks
+brew install gitleaks
+```
+
+## Validate
+
+### Various validations
+
+```bash
+./validate.sh
+
+or
+
+uv run pre-commit run -a
+```
+
+### SonarQube (need token)
+
+```bash
+docker run \
+ --rm \
+ -e SONAR_TOKEN="$SONAR_TOKEN" \
+ -v $HOME/.sonar/cache:/opt/sonar-scanner/.sonar/cache \
+ -v ".:/usr/src" \
+ sonarsource/sonar-scanner-cli
+```
+
+online results: <https://sonarcloud.io/project/overview?id=dtonic%3Adhub-dashboard-collector>
+
+### CodeQL CLI
+
+```bash
+brew install --cask codeql
+codeql database create /tmp/codeql-db --language=python --overwrite --source-root src
+codeql database analyze /tmp/codeql-db codeql/python-queries:codeql-suites/python-security-and-quality.qls --format=sarif-latest --output=/tmp/codeql-results.sarif
+
+# need vscode sarif viewer extensions
+code /tmp/codeql-results.sarif
+```
+
+### Snyk (need token)
+
+```bash
+brew install snyk-cli
+snyk auth
+uv run pip freeze -l > /tmp/requirements.txt && \
+    uv run snyk test --severity-threshold=high --fail-fast --file=/tmp/requirements.txt
+uv run snyk code test --severity-threshold=high --fail-fast
+uv run snyk code iac --severity-threshold=high --fail-fast
+uv run snyk code container test dhub-dashboard-collector:test --file=Dockerfile --severity-threshold=high --fail-fast
+```
+
+### Dependency-check (need nvdApiKey)
+
+```bash
+# Get nvdApiKey https://nvd.nist.gov/developers/request-an-api-key
+brew install dependency-check
+uv run dependency-check --scan src -failOnCVSS 7 \
+    --nvdApiKey "$nvdApiKey" \
+    --prettyPrint  -f JSON -o /tmp/dependency-check.json \
+    && cat /tmp/dependency-check.json
+```
+
+You can save nvdApiKey to ~/.config/dependency-check/dependencycheck.properties and avoid passing it every time
+
 ## Run on local
 
 Set up python environment

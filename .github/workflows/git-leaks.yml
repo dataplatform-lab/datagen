@@ -1,0 +1,33 @@
+name: GitLeaks
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: "30 18 * * 5"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  git-leaks:
+    permissions:
+      contents: read
+      security-events: write
+    name: GitLeaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # Fetch all history for all branches and tags
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
