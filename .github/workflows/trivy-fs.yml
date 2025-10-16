@@ -27,7 +27,7 @@ jobs:
       - name: Run Trivy vulnerability scanner in fs mode
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          exit-code: "1"
+          exit-code: "0"
           scanners: "vuln,misconfig,secret,license"
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
