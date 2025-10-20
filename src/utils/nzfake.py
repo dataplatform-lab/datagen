@@ -14,7 +14,7 @@ from utils.nazare import EdgeDataSpec, EdgeDataSpecType, Field
 
 def _secrets_randint(a: int, b: int) -> int:
     """Generate a random integer in the range [a, b] using secrets module.
-    
+
     This is a cryptographically secure replacement for random.randint().
     """
     if a > b:
@@ -24,7 +24,7 @@ def _secrets_randint(a: int, b: int) -> int:
 
 def _secrets_uniform(a: float, b: float) -> float:
     """Generate a random float in the range [a, b) using secrets module.
-    
+
     This is a cryptographically secure replacement for random.uniform().
     """
     if a > b:
