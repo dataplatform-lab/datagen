@@ -1,5 +1,5 @@
 import logging
-import random
+import secrets
 import string
 import struct
 from abc import ABC, abstractmethod
@@ -12,36 +12,60 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from utils.nazare import EdgeDataSpec, EdgeDataSpecType, Field
 
 
+def _secrets_randint(a: int, b: int) -> int:
+    """Generate a random integer in the range [a, b] using secrets module.
+    
+    This is a cryptographically secure replacement for random.randint().
+    """
+    if a > b:
+        raise ValueError("a must be less than or equal to b")
+    return a + secrets.randbelow(b - a + 1)
+
+
+def _secrets_uniform(a: float, b: float) -> float:
+    """Generate a random float in the range [a, b) using secrets module.
+    
+    This is a cryptographically secure replacement for random.uniform().
+    """
+    if a > b:
+        a, b = b, a
+    # Generate a random float between 0 and 1 using secrets
+    # We use 53 bits of randomness for a float (matching Python's random.uniform precision)
+    random_bits = secrets.randbits(53)
+    random_float = random_bits / (2**53)
+    return a + (b - a) * random_float
+
+
 def _gen_struct_to_value(format: str, size: int):
     value = None
     if format == "c":
-        value = random.choice(string.ascii_letters + string.digits).encode("utf-8")
+        value = secrets.choice(string.ascii_letters + string.digits).encode("utf-8")
     elif format == "b":
-        value = random.randint(-(2**7), (2**7) - 1)
+        value = _secrets_randint(-(2**7), (2**7) - 1)
     elif format == "B":
-        value = random.randint(0, (2**8) - 1)
+        value = _secrets_randint(0, (2**8) - 1)
     elif format == "?":
-        value = random.getrandbits(1)
+        value = secrets.randbits(1)
     elif format == "h":
-        value = random.randint(-(2**15), (2**15) - 1)
+        value = _secrets_randint(-(2**15), (2**15) - 1)
     elif format == "H":
-        value = random.randint(0, (2**16) - 1)
+        value = _secrets_randint(0, (2**16) - 1)
     elif format == "i" or format == "l":
-        value = random.randint(-(2**31), (2**31) - 1)
+        value = _secrets_randint(-(2**31), (2**31) - 1)
     elif format == "I" or format == "L":
-        value = random.randint(0, (2**32) - 1)
+        value = _secrets_randint(0, (2**32) - 1)
     elif format == "q":
-        value = random.randint(-(2**63), (2**63) - 1)
+        value = _secrets_randint(-(2**63), (2**63) - 1)
     elif format == "Q":
-        value = random.randint(0, (2**64) - 1)
+        value = _secrets_randint(0, (2**64) - 1)
     elif format == "f":
-        value = random.uniform(-(2**31), (2**31) - 1)
+        value = _secrets_uniform(-(2**31), (2**31) - 1)
     elif format == "d":
-        value = random.uniform(-(2**63), (2**63) - 1)
+        value = _secrets_uniform(-(2**63), (2**63) - 1)
     elif format.endswith("s") or format.endswith("p"):
         str_length = size
         value = "".join(
-            random.choice(string.ascii_letters + string.digits)
+            secrets.choice(string.ascii_letters + string.digits)
             for _ in range(str_length)
         ).encode("utf-8")
 
@@ -56,32 +80,32 @@ def _gen_datatype_values(
 ):
     value = None
     if type == "tinyint":
-        value = random.randint(-(2**7), (2**7) - 1)
+        value = _secrets_randint(-(2**7), (2**7) - 1)
     elif type == "boolean":
-        value = random.choice([True, False])
+        value = secrets.choice([True, False])
     elif type == "smallint":
-        value = random.randint(-(2**15), (2**15) - 1)
+        value = _secrets_randint(-(2**15), (2**15) - 1)
     elif type == "int" or type == "integer":
-        value = random.randint(-(2**31), (2**31) - 1)
+        value = _secrets_randint(-(2**31), (2**31) - 1)
     elif type == "bigint" or type == "long":
-        value = random.randint(-(2**63), (2**63) - 1)
+        value = _secrets_randint(-(2**63), (2**63) - 1)
     elif type == "float":
-        value = random.uniform(-(2**31), (2**31) - 1)
+        value = _secrets_uniform(-(2**31), (2**31) - 1)
     elif type == "double":
-        value = random.uniform(-(2**63), (2**63) - 1)
+        value = _secrets_uniform(-(2**63), (2**63) - 1)
     elif type == "timestamp":
         value = int(
-            (datetime.now() + timedelta(hours=random.randint(-720, 0))).timestamp()
+            (datetime.now() + timedelta(hours=_secrets_randint(-720, 0))).timestamp()
             * 1e6
         )
     elif type == "date":
         value = datetime.now().date()
     elif type == "string":
         if str_cardinality > 0:
-            value = random.choice(str_choice)
+            value = secrets.choice(str_choice)
         else:
             value = "".join(
-                random.choice(string.ascii_letters + string.digits)
+                secrets.choice(string.ascii_letters + string.digits)
                 for _ in range(str_length)
             )
     else:
@@ -99,7 +123,7 @@ def _gen_spec_values(spec: EdgeDataSpec) -> list[int]:
         bits = 0
         for bit in reversed(spec.bits):
             if bit:
-                bit = random.getrandbits(1)
+                bit = secrets.randbits(1)
             else:
                 bit = 0
 
@@ -217,19 +241,19 @@ class NZFaker(NZFakerDB):
 
     def values(self):
         values = (
-            [random.choice([True, False]) for _ in range(self.bool_count)]
-            + [random.randint(-(2**31), (2**31) - 1) for _ in range(self.int_count)]
-            + [random.uniform(-(2**31), (2**31) - 1) for _ in range(self.float_count)]
+            [secrets.choice([True, False]) for _ in range(self.bool_count)]
+            + [_secrets_randint(-(2**31), (2**31) - 1) for _ in range(self.int_count)]
+            + [_secrets_uniform(-(2**31), (2**31) - 1) for _ in range(self.float_count)]
             + self.fake.words(self.word_count)
             + self.fake.texts(self.text_count)
             + [self.fake.name() for _ in range(self.name_count)]
         )
         if self.str_cardinality > 0:
-            values += [random.choice(self.str_choice) for _ in range(self.str_count)]
+            values += [secrets.choice(self.str_choice) for _ in range(self.str_count)]
         else:
             values += [
                 "".join(
-                    random.choice(string.ascii_letters + string.digits)
+                    secrets.choice(string.ascii_letters + string.digits)
                     for _ in range(self.str_length)
                 )
                 for _ in range(self.str_count)
@@ -535,7 +559,7 @@ class NZFakerField:
             zip(
                 self.integers + self.longs,
                 [
-                    random.randint(-(2**31), (2**31) - 1)
+                    _secrets_randint(-(2**31), (2**31) - 1)
                     for _ in range(len(self.integers) + len(self.longs))
                 ],
                 strict=False,
@@ -546,7 +570,7 @@ class NZFakerField:
                 zip(
                     self.strings,
                     [
-                        random.choice(self.string_choice)
+                        secrets.choice(self.string_choice)
                         for _ in range(len(self.strings))
                     ],
                     strict=False,
@@ -560,7 +584,7 @@ class NZFakerField:
             zip(
                 self.floats + self.doubles,
                 [
-                    random.uniform(-(2**31), (2**31) - 1)
+                    _secrets_uniform(-(2**31), (2**31) - 1)
                     for _ in range(len(self.floats) + len(self.doubles))
                 ],
                 strict=False,
@@ -570,7 +594,7 @@ class NZFakerField:
         values |= dict(
             zip(
                 self.booleans,
-                [random.choice([True, False]) for _ in range(len(self.booleans))],
+                [secrets.choice([True, False]) for _ in range(len(self.booleans))],
                 strict=False,
             )
         )
