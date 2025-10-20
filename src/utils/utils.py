@@ -114,7 +114,9 @@ def csv_loads(value: str, headers: list[str]) -> dict:
         else:
             vals.append(v)
 
-    return {k: v for k, v in dict(zip(headers, vals, strict=False)).items() if v is not None}
+    return {
+        k: v for k, v in dict(zip(headers, vals, strict=False)).items() if v is not None
+    }
 
 
 def eval_create_func(eval_field_expr: str) -> Callable:
