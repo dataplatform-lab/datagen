@@ -5,8 +5,7 @@ import csv
 import io
 import logging
 
-from utils.nazare import Field, nz_predict_field
-from utils.utils import LoadRows, download_s3file
+from utils.nazare import Field
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

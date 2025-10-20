@@ -6,7 +6,7 @@
 import argparse
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from time import perf_counter
 
 import pandas as pd
@@ -217,14 +217,14 @@ if __name__ == "__main__":
         exit(0)
 
     row_idx = 0
-    timestamp_start = datetime.fromtimestamp(args.timestamp_start, timezone.utc)
+    timestamp_start = datetime.fromtimestamp(args.timestamp_start, UTC)
     total_elapsed = []
     for loop_idx in range(args.loop_max):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         rows = []
         for _ in range(args.rate):
-            at = datetime.now(timezone.utc)
+            at = datetime.now(UTC)
             rows.append(
                 values[row_idx]
                 | custom_row
@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
         if args.rate_interval:
             wait = (
-                args.rate_interval - (datetime.now(timezone.utc) - now).total_seconds()
+                args.rate_interval - (datetime.now(UTC) - now).total_seconds()
             )
             wait = 0.0 if wait < 0 else wait
 

@@ -5,12 +5,12 @@ import enum
 import logging
 import re
 import struct
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Literal
+from typing import Annotated, Literal
 
 import requests
 from pydantic import BaseModel, BeforeValidator, TypeAdapter
-from typing_extensions import Annotated
 
 from utils.utils import load_rows
 
@@ -137,7 +137,7 @@ def _datasource_to_dataspecs(datasource: EdgeDataSource) -> list[EdgeDataSpec]:
 
     data_specs = []
     index = 0
-    for format, field in zip(formats, fields):
+    for format, field in zip(formats, fields, strict=False):
         bits = None
         if not field:
             field = f"v{index}"

@@ -90,7 +90,15 @@ Set up python environment
 uv sync
 ```
 
-Run Kafka producer
+### Run delta converter
+
+````bash
+python src/to_delta.py \
+    --src-filepath ./samples/kamp/press/Press_RawDataSet.csv --dest-path .delta --column-map-file ./samples/mapper/kamp-press.json \
+    --timestamp-start 1735689600 --timestamp-column-name timestamp --date-column-name date --delta-partition-by date \
+    --read-block-size $((1024*1024*1024)) --repeat-count 1
+
+### Run Kafka producer
 
 ```bash
 # Produce fake data
@@ -120,9 +128,9 @@ uv run python3 src/pandas_http_file.py \
 --host PANDAS_PROXY_HOST --port PANDAS_PROXY_PORT --kafka-sasl-username USERNAME --kafka-sasl-password PASSWORD --ssl --kafka-topic test-kafka-topic \
 --nz-schema-file samples/test/schema/fake.csv --nz-schema-file-type csv \
 --input-filepath samples/test/schema/fake.json --input-type json --output-type json
-```
+````
 
-Consumer Kafka data
+### Run Kafka consumer
 
 ```bash
 python src/consumer_loop.py \
@@ -131,7 +139,7 @@ python src/consumer_loop.py \
 --loglevel DEBUG
 ```
 
-Run MQTT publisher
+### Run MQTT publisher
 
 ```bash
 # Publish fake data
@@ -145,32 +153,11 @@ uv run python3 src/publish_file.py --mqtt-host MQTT_HOST --mqtt-port MQTT_PORT -
 --input-filepath samples/test/schema/fake.json --input-type json --output-type json
 ```
 
-Create, Delete a Nazare pipeline
-
-```bash
-# Create pipeline
-uv run python3 src/nazare_pipeline_create.py \
---nz-api-url STORE_API_URL --nz-api-username STORE_API_USERNAME --nz-api-password STORE_API_PASSWORD \
---nz-pipeline-name PIPELINE_NAME --nz-pipeline-type PIPELINE_TYPE -no-pipeline-deltasync --pipeline-retention '60,d' \
---nz-schema-file SCHEMA_FILE --nz-schema-file-type SCHEMA_FILE_TYPE
-
-# Delete pipeline
-uv run python3 src/nazare_pipeline_delete.py \
---nz-api-url STORE_API_URL --nz-api-username STORE_API_USERNAME --nz-api-password STORE_API_PASSWORD \
---nz-pipeline-name PIPELINE_NAME \
-```
-
 ## Run on docker
 
 ```bash
 # Produce fake data
 docker run --rm -it bluezery/datagen:test uv run src/produce_fake.py --kafka-bootstrap-servers BOOTSTRAP_SERVER --kafka-security-protocol SASL_PLAINTEXT --kafka-sasl-username USERNAME --kafka-sasl-password PASSWORD --kafka-topic test-kafka-topic --rate 1  --report-interval 1
-```
-
-## Run on K8s
-
-```bash
-
 ```
 
 ## Build

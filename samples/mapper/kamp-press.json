@@ -1,0 +1,30 @@
+{
+    "Machine_Name": {
+        "name": "machine_name",
+        "type": "string"
+    },
+    "Item No": {
+        "name": "item_no",
+        "type": "string"
+    },
+    "working time": {
+        "name": "working_time",
+        "type": "string"
+    },
+    "Press time(ms)": {
+        "name": "press_time_ms",
+        "type": "int64"
+    },
+    "Pressure 1": {
+        "name": "pressure_1",
+        "type": "float64"
+    },
+    "Pressure 2": {
+        "name": "pressure_2",
+        "type": "float64"
+    },
+    "Pressure 5": {
+        "name": "pressure_5",
+        "type": "float64"
+    }
+}

@@ -5,12 +5,13 @@ import os
 from collections.abc import Callable
 from datetime import date
 from io import StringIO
-from typing import Literal
+from typing import Literal, Protocol
 from urllib.parse import urlparse
 
 import boto3
 import bson
 import orjson
+import pyarrow as pa
 import pyarrow.dataset as ds
 from botocore.client import Config
 from bson.codec_options import CodecOptions, TypeCodec, TypeRegistry
@@ -56,8 +57,13 @@ def download_s3file(filepath: str, accesskey: str, secretkey: str, endpoint: str
 
 
 class DateCodec(TypeCodec):
-    python_type = date
-    bson_type = str
+    @property
+    def python_type(self):
+        return date
+
+    @property
+    def bson_type(self):
+        return str
 
     def transform_python(self, value: date):
         return str(value)
@@ -108,7 +114,18 @@ def csv_loads(value: str, headers: list[str]) -> dict:
         else:
             vals.append(v)
 
-    return {k: v for k, v in dict(zip(headers, vals)).items() if v is not None}
+    return {k: v for k, v in dict(zip(headers, vals, strict=False)).items() if v is not None}
+
+
+def eval_create_func(eval_field_expr: str) -> Callable:
+    fields = [
+        node.id
+        for node in ast.walk(ast.parse(eval_field_expr))
+        if isinstance(node, ast.Name)
+    ]
+    return eval(
+        "lambda " + ",".join(fields) + ",**kwargs" + ": " + eval_field_expr, {}, {}
+    )
 
 
 def load_rows(
@@ -120,7 +137,7 @@ def load_rows(
             for line in bson.decode_file_iter(f):
                 rows.append(line)
     else:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8-sig") as f:
             if filetype == "jsonl":
                 for line in f:
                     rows.append(orjson.loads(line))
@@ -148,107 +165,157 @@ def load_rows(
     return rows
 
 
-class LoadRows(object):
-    def __init__(
-        self,
-        filepath: str,
-        filetype: str = Literal["csv", "json", "jsonl", "bson", "parquet"],
-    ):
-        self.filepath = filepath
-        self.filetype = filetype
-        self.bson_iter = None
-        self.json_iter = None
-        self.json_obj = None
-        self.pq_batches = None
-        self.pq_batch = None
-        self.pq_batch_idx = 0
-        self.pq_batch_size = 1000
-        self.pq_table = None
+class LoadAny(Protocol):
+    def __init__(self, filepath: str): ...
 
-        if self.filetype == "bson":
-            self.fo = open(self.filepath, "rb")
-        elif self.filetype == "parquet":
-            self.pq_batches = ds.dataset(self.filepath, format="parquet").to_batches(
-                batch_size=self.pq_batch_size
-            )
-        else:
-            self.fo = open(self.filepath, "r", encoding="utf-8")
+    def __enter__(self): ...
+
+    def __exit__(self, type, value, trace_back): ...
+
+    def rewind(self): ...
+
+    def __iter__(self): ...
+
+    def __next__(self): ...
+
+
+class LoadBson:
+    def __init__(self, filepath: str):
+        self.io = open(filepath, "rb")
 
     def __enter__(self):
-        if self.filetype == "bson":
-            self.bson_iter = bson.decode_file_iter(self.fo)
-        elif self.filetype == "json":
-            self.json_obj = orjson.loads(self.fo.read())
-            if isinstance(self.json_obj, list):
-                self.json_iter = iter(self.json_obj)
-            else:
-                self.json_iter = iter([self.json_obj])
-        elif self.filetype == "csv":
-            self.headers = self.fo.readline().strip().split(",")
-
+        self.iter = bson.decode_file_iter(self.io)
         return self
 
     def __exit__(self, type, value, trace_back):
-        self.fo.close()
+        self.io.close()
 
     def rewind(self):
-        if self.filetype == "bson":
-            self.fo.seek(0)
-            self.bson_iter = bson.decode_file_iter(self.fo)
-        elif self.filetype == "json":
-            if isinstance(self.json_obj, list):
-                self.json_iter = iter(self.json_obj)
-            else:
-                self.json_iter = iter([self.json_obj])
-        elif self.filetype == "jsonl":
-            self.fo.seek(0)
-        elif self.filetype == "csv":
-            self.fo.seek(0)
-            self.headers = self.fo.readline().strip().split(",")
-        elif self.filetype == "parquet":
-            self.pq_batches = ds.dataset(self.filepath, format="parquet").to_batches(
-                batch_size=self.pq_batch_size
-            )
+        self.io.seek(0)
+        self.iter = bson.decode_file_iter(self.io)
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.filetype == "bson":
-            return next(self.bson_iter)
-        elif self.filetype == "json":
-            return next(self.json_iter)
-        elif self.filetype == "jsonl":
-            line = self.fo.readline()
-            if not line:
-                raise StopIteration
+        return next(self.iter)
 
-            row = orjson.loads(line)
-        elif self.filetype == "parquet":
-            if self.pq_batch is None or self.pq_batch_idx >= self.pq_batch.num_rows:
-                self.pq_batch = next(self.pq_batches)
-                self.pq_batch_idx = 0
-            row = self.pq_batch.slice(self.pq_batch_idx, 1).to_pylist()[0]
-            self.pq_batch_idx += 1
+
+class LoadJson:
+    def __init__(self, filepath: str):
+        self.json
+        self.io = open(filepath, encoding="utf-8-sig")
+
+    def __enter__(self):
+        self.json = orjson.loads(self.io.read())
+        if isinstance(self.json, list):
+            self.iter = iter(self.json)
         else:
-            line = self.fo.readline()
-            if not line:
-                raise StopIteration
+            self.iter = iter([self.json])
 
-            if self.filetype == "csv":
-                row = csv_loads(line, self.headers)
-            elif self.filetype == "jsonl":
-                row = orjson.loads(line)
+        return self
 
-        return row
+    def __exit__(self, type, value, trace_back):
+        self.io.close()
+
+    def rewind(self):
+        if isinstance(self.json, list):
+            self.iter = iter(self.json)
+        else:
+            self.iter = iter([self.json])
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self.iter)
 
 
-def eval_create_func(eval_field_expr: str) -> Callable:
-    fields = [
-        node.id
-        for node in ast.walk(ast.parse(eval_field_expr))
-        if isinstance(node, ast.Name)
-    ]
-    return eval(
-        "lambda " + ",".join(fields) + ",**kwargs" + ": " + eval_field_expr, {}, {}
-    )
+class LoadJsonl:
+    def __init__(self, filepath: str):
+        self.io = open(filepath, encoding="utf-8-sig")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, trace_back):
+        self.io.close()
+
+    def rewind(self):
+        self.io.seek(0)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        line = self.io.readline()
+        if not line:
+            raise StopIteration
+
+        return orjson.loads(line)
+
+
+class LoadParquet:
+    def __init__(
+        self,
+        filepath: str,
+        batch_size: int = 1000,
+        type: Literal["batch", "table", "python"] = "batch",
+    ):
+        self.filepath = filepath
+        self.type = type
+        self.batch_size = batch_size
+        self.table = None
+
+        self.batches = ds.dataset(self.filepath, format="parquet").to_batches(
+            batch_size=self.batch_size
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, trace_back): ...
+
+    def rewind(self):
+        self.batches = ds.dataset(self.filepath, format="parquet").to_batches(
+            batch_size=self.batch_size
+        )
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        batch = next(self.batches)
+
+        if self.type == "python":
+            return batch.to_pylist()
+        elif self.type == "table":
+            return pa.Table.from_batches([batch])
+
+        return batch
+
+
+class LoadCSV:
+    def __init__(self, filepath: str):
+        self.io = open(filepath, encoding="utf-8-sig")
+
+    def __enter__(self):
+        self.headers = self.io.readline().strip().split(",")
+        return self
+
+    def __exit__(self, type, value, trace_back):
+        self.io.close()
+
+    def rewind(self):
+        self.io.seek(0)
+        self.headers = self.io.readline().strip().split(",")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        line = self.io.readline()
+        if not line:
+            raise StopIteration
+
+        return csv_loads(line, self.headers)

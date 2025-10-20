@@ -10,7 +10,7 @@ import signal
 import sys
 import time
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import requests
 import urllib3
@@ -65,7 +65,7 @@ def create_record(
         interval = values[interval_field] / interval_field_divisor
     elif interval_field_diff and interval_field_diff in values:
         global INTERVAL_DIFF_PREV
-        interval_diff = datetime.fromisoformat((values[interval_field_diff]))
+        interval_diff = datetime.fromisoformat(values[interval_field_diff])
         if INTERVAL_DIFF_PREV:
             interval = (interval_diff - INTERVAL_DIFF_PREV).total_seconds()
         INTERVAL_DIFF_PREV = interval_diff
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     records = []
     with LoadRows(filepath, args.input_type) as rows:
         while True:
-            start_time = datetime.now(timezone.utc)
+            start_time = datetime.now(UTC)
             for _ in range(args.rate):
                 ts = start_time + timedelta(seconds=elapsed)
 
@@ -418,7 +418,7 @@ if __name__ == "__main__":
                 )
                 report_count = 0
 
-            wait = elapsed - (datetime.now(timezone.utc) - start_time).total_seconds()
+            wait = elapsed - (datetime.now(UTC) - start_time).total_seconds()
             wait = 0.0 if wait < 0 else wait
             elapsed = 0
             time.sleep(wait)

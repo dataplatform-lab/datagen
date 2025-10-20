@@ -4,13 +4,13 @@ import logging
 import signal
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from ssl import create_default_context
 from zoneinfo import ZoneInfo
 
 import paho.mqtt.client as mqtt
 
-from utils.nazare import nz_load_fields, nz_pipeline_create, edge_load_datasources
+from utils.nazare import edge_load_datasources, nz_load_fields, nz_pipeline_create
 from utils.nzfake import NaFaker, NZFakerEdge, NZFakerField
 from utils.utils import download_s3file, encode
 
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     elapsed = 0
     report_count = 0
     while True:
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         for _ in range(args.rate):
             ts = start_time + timedelta(seconds=elapsed)
 
@@ -325,7 +325,7 @@ if __name__ == "__main__":
 
             elapsed += args.interval
 
-        wait = elapsed - (datetime.now(timezone.utc) - start_time).total_seconds()
+        wait = elapsed - (datetime.now(UTC) - start_time).total_seconds()
         wait = 0.0 if wait < 0 else wait
         elapsed = 0
         time.sleep(wait)

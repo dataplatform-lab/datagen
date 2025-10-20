@@ -8,7 +8,7 @@ import atexit
 import logging
 import signal
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from confluent_kafka import Consumer
 
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         )
 
         cnt = 0
-        prev = datetime.now(timezone.utc)
+        prev = datetime.now(UTC)
         msgs = consumer.consume(
             args.kafka_consume_count, timeout=args.kafka_consume_timeout
         )
@@ -225,6 +225,6 @@ if __name__ == "__main__":
 
         logging.info(
             "Message report, rate: %f records/sec",
-            cnt / (datetime.now(timezone.utc) - prev).total_seconds(),
+            cnt / (datetime.now(UTC) - prev).total_seconds(),
         )
         cnt = 0

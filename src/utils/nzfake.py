@@ -3,7 +3,7 @@ import random
 import string
 import struct
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from faker import Faker
 from sqlalchemy import Boolean, DateTime, String, create_engine, func, select
@@ -234,7 +234,7 @@ class NZFaker(NZFakerDB):
                 )
                 for _ in range(self.str_count)
             ]
-        return dict(zip(self.fields, values))
+        return dict(zip(self.fields, values, strict=False))
 
 
 class Base(DeclarativeBase):
@@ -483,7 +483,7 @@ class NZFakerField:
         str_length: int,
         str_cardinality: int,
         binary_length: int,
-        timestamp_tzinfo=timezone.utc,
+        timestamp_tzinfo=UTC,
     ):
         self.fake = Faker(use_weighting=False)
         self.fields = []
@@ -537,7 +537,7 @@ class NZFakerField:
                 [
                     random.randint(-(2**31), (2**31) - 1)
                     for _ in range(len(self.integers) + len(self.longs))
-                ],
+                ], strict=False,
             )
         )
         if self.string_choice:
@@ -547,25 +547,25 @@ class NZFakerField:
                     [
                         random.choice(self.string_choice)
                         for _ in range(len(self.strings))
-                    ],
+                    ], strict=False,
                 )
             )
         else:
-            values |= dict(zip(self.strings, self.fake.words(len(self.strings))))
+            values |= dict(zip(self.strings, self.fake.words(len(self.strings)), strict=False))
         values |= dict(
             zip(
                 self.floats + self.doubles,
                 [
                     random.uniform(-(2**31), (2**31) - 1)
                     for _ in range(len(self.floats) + len(self.doubles))
-                ],
+                ], strict=False,
             )
         )
 
         values |= dict(
             zip(
                 self.booleans,
-                [random.choice([True, False]) for _ in range(len(self.booleans))],
+                [random.choice([True, False]) for _ in range(len(self.booleans))], strict=False,
             )
         )
         values |= dict(
@@ -574,13 +574,13 @@ class NZFakerField:
                 [
                     self.fake.binary(length=self.binary_length)
                     for _ in range(len(self.binaries))
-                ],
+                ], strict=False,
             )
         )
         values |= dict(
             zip(
                 self.dates,
-                [self.fake.date_object() for _ in range(len(self.dates))],
+                [self.fake.date_object() for _ in range(len(self.dates))], strict=False,
             )
         )
         values |= dict(
@@ -589,13 +589,13 @@ class NZFakerField:
                 [
                     self.fake.date_time(self.timestamp_tzinfo)
                     for _ in range(len(self.timestamps))
-                ],
+                ], strict=False,
             )
         )
         values |= dict(
             zip(
                 self.timestamp_ntz_s,
-                [self.fake.date_time() for _ in range(len(self.timestamp_ntz_s))],
+                [self.fake.date_time() for _ in range(len(self.timestamp_ntz_s))], strict=False,
             )
         )
 
