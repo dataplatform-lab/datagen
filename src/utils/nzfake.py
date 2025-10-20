@@ -537,7 +537,8 @@ class NZFakerField:
                 [
                     random.randint(-(2**31), (2**31) - 1)
                     for _ in range(len(self.integers) + len(self.longs))
-                ], strict=False,
+                ],
+                strict=False,
             )
         )
         if self.string_choice:
@@ -547,25 +548,30 @@ class NZFakerField:
                     [
                         random.choice(self.string_choice)
                         for _ in range(len(self.strings))
-                    ], strict=False,
+                    ],
+                    strict=False,
                 )
             )
         else:
-            values |= dict(zip(self.strings, self.fake.words(len(self.strings)), strict=False))
+            values |= dict(
+                zip(self.strings, self.fake.words(len(self.strings)), strict=False)
+            )
         values |= dict(
             zip(
                 self.floats + self.doubles,
                 [
                     random.uniform(-(2**31), (2**31) - 1)
                     for _ in range(len(self.floats) + len(self.doubles))
-                ], strict=False,
+                ],
+                strict=False,
             )
         )
 
         values |= dict(
             zip(
                 self.booleans,
-                [random.choice([True, False]) for _ in range(len(self.booleans))], strict=False,
+                [random.choice([True, False]) for _ in range(len(self.booleans))],
+                strict=False,
             )
         )
         values |= dict(
@@ -574,13 +580,15 @@ class NZFakerField:
                 [
                     self.fake.binary(length=self.binary_length)
                     for _ in range(len(self.binaries))
-                ], strict=False,
+                ],
+                strict=False,
             )
         )
         values |= dict(
             zip(
                 self.dates,
-                [self.fake.date_object() for _ in range(len(self.dates))], strict=False,
+                [self.fake.date_object() for _ in range(len(self.dates))],
+                strict=False,
             )
         )
         values |= dict(
@@ -589,13 +597,15 @@ class NZFakerField:
                 [
                     self.fake.date_time(self.timestamp_tzinfo)
                     for _ in range(len(self.timestamps))
-                ], strict=False,
+                ],
+                strict=False,
             )
         )
         values |= dict(
             zip(
                 self.timestamp_ntz_s,
-                [self.fake.date_time() for _ in range(len(self.timestamp_ntz_s))], strict=False,
+                [self.fake.date_time() for _ in range(len(self.timestamp_ntz_s))],
+                strict=False,
             )
         )
 

@@ -256,9 +256,7 @@ if __name__ == "__main__":
         logging.info(f"{loop_idx}: elapsed: {elapsed}s, start: {now}")
 
         if args.rate_interval:
-            wait = (
-                args.rate_interval - (datetime.now(UTC) - now).total_seconds()
-            )
+            wait = args.rate_interval - (datetime.now(UTC) - now).total_seconds()
             wait = 0.0 if wait < 0 else wait
 
             logging.info("Waiting for %f seconds...", wait)

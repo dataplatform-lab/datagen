@@ -131,9 +131,9 @@ if __name__ == "__main__":
             "AWS_SECRET_ACCESS_KEY": args.s3_secretkey,
             "AWS_REGION": "ap-northeast-2",
             "AWS_S3_ALLOW_UNSAFE_RENAME": "true",
-            "AWS_ALLOW_HTTP": "true"
-            if args.s3_endpoint.startswith("http")
-            else "false",
+            "AWS_ALLOW_HTTP": (
+                "true" if args.s3_endpoint.startswith("http") else "false"
+            ),
         }
         if "s3.amazonaws.com" not in args.s3_endpoint:
             delta_storage_options = {
