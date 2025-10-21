@@ -9,7 +9,7 @@ on:
         description: "Github runners tag"
         type: string
         required: false
-        default: self-hosted
+        default: ubuntu-latest
       image:
         description: "Docker image name"
         type: string
