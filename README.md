@@ -94,9 +94,10 @@ uv sync
 
 ````bash
 python src/to_delta.py \
-    --src-filepath ./samples/kamp/press/Press_RawDataSet.csv --dest-path .delta --column-map-file ./samples/mapper/kamp-press.json \
+    --src-filepath ./samples/kamp/press/Press_RawDataSet.csv --column-map-file ./samples/mapper/kamp-press.json --dest-path .delta \
     --timestamp-start 1735689600 --timestamp-column-name timestamp --date-column-name date --delta-partition-by date \
-    --read-block-size $((1024*1024*1024)) --repeat-count 1
+    --repeat-count 1
+```
 
 ### Run Kafka producer
 

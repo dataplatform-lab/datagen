@@ -175,3 +175,7 @@ cython_debug/
 
 # To prevent failure in Codacy GitHub actions
 results.sarif
+
+.delta
+.serena
+.sonarlint

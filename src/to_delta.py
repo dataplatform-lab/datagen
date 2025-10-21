@@ -1,6 +1,6 @@
 import argparse
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pyarrow as pa
 from deltalake import PostCommitHookProperties, WriterProperties, write_deltalake
@@ -27,6 +27,12 @@ if __name__ == "__main__":
         type=int,
         help="Bytes to read at a time from source file",
         default=1024 * 1024 * 1024,
+    )
+    parser.add_argument(
+        "--rows-count",
+        type=int,
+        help="Number of rows to accumulate before writing to DeltaLake",
+        default=10_000_000,
     )
 
     # Timestamp options
@@ -91,6 +97,18 @@ if __name__ == "__main__":
         help="Delta page size limit",
     )
     parser.add_argument(
+        "--delta-target-file-size",
+        type=int,
+        help="Delta target file size",
+        default=1024 * 1024 * 256,
+    )
+    parser.add_argument(
+        "--delta-write-batch-size",
+        type=int,
+        help="Delta write batch size",
+        default=1000_000,
+    )
+    parser.add_argument(
         "--delta-compression", type=str, default="ZSTD", help="Delta compression"
     )
     parser.add_argument(
@@ -145,7 +163,7 @@ if __name__ == "__main__":
         cleanup_expired_logs=True,
     )
     delta_writer_properties = WriterProperties(
-        write_batch_size=args.repeat_count,
+        write_batch_size=args.delta_write_batch_size,
         compression=args.delta_compression,
         compression_level=args.delta_compression_level,
     )
@@ -157,77 +175,70 @@ if __name__ == "__main__":
 
     if args.timestamp_column_name:
         if args.timestamp_start:
-            timestamp_start = datetime.fromtimestamp(args.timestamp_start, UTC)
+            timestamp_start = datetime.fromtimestamp(args.timestamp_start, timezone.utc)
         else:
-            timestamp_start = datetime.now(UTC)
+            timestamp_start = datetime.now(timezone.utc)
         print(f"Timestamp start from {timestamp_start.isoformat()}")
 
-    for repeat_idx in range(args.repeat_count):
-        if col_map:
-            convert_options = csv.ConvertOptions(
-                include_columns=list(col_map.keys()),
-                column_types={key: val["type"] for key, val in col_map.items()},
+    if col_map:
+        convert_options = csv.ConvertOptions(
+            include_columns=list(col_map.keys()),
+            column_types={key: val["type"] for key, val in col_map.items()},
+        )
+
+    else:
+        convert_options = None
+
+    table = csv.read_csv(
+        args.src_filepath,
+        read_options=csv.ReadOptions(use_threads=True, block_size=args.read_block_size),
+        convert_options=convert_options,
+    )
+    if col_map:
+        table = table.rename_columns(
+            {
+                key: col_map[key]["name"]
+                for key in col_map.keys()
+                if "name" in col_map[key]
+            }
+        )
+
+    repeat_idx = 0
+    while repeat_idx < args.repeat_count:
+        cnt = max(1, min(args.repeat_count, int(args.rows_count / table.num_rows)))
+        dest_table = pa.concat_tables([table] * cnt).combine_chunks()
+        repeat_idx += cnt
+
+        if args.timestamp_column_name:
+            timestamps = [
+                timestamp_start + timedelta(seconds=i * args.timestamp_interval)
+                for i in range(dest_table.num_rows)
+            ]
+            dest_table = dest_table.add_column(
+                0, args.timestamp_column_name, pa.array(timestamps)
+            )
+            if args.date_column_name:
+                dest_table = dest_table.add_column(
+                    1,
+                    args.date_column_name,
+                    pa.array([ts.date() for ts in timestamps]),  # type: ignore
+                )
+            timestamp_start += timedelta(
+                seconds=dest_table.num_rows * args.timestamp_interval
             )
 
-        else:
-            convert_options = None
-
-        batches = []
-        reader = csv.open_csv(
-            args.src_filepath,
-            read_options=csv.ReadOptions(
-                use_threads=True,
-                block_size=args.read_block_size if args.read_block_size else None,
-            ),
-            convert_options=convert_options,
-        )
-        for batch in reader:
-            if col_map:
-                batch = batch.rename_columns(
-                    {
-                        key: col_map[key]["name"]
-                        for key in col_map.keys()
-                        if "name" in col_map[key]
-                    }
-                )
-
-            if args.timestamp_column_name:
-                batch = batch.add_column(
-                    0,
-                    args.timestamp_column_name,
-                    [
-                        timestamp_start + timedelta(seconds=i * args.timestamp_interval)
-                        for i in range(batch.num_rows)
-                    ],
-                )
-                if args.date_column_name:
-                    batch = batch.add_column(
-                        1,
-                        args.date_column_name,
-                        [
-                            (
-                                timestamp_start
-                                + timedelta(seconds=i * args.timestamp_interval)
-                            ).date()  # type: ignore
-                            for i in range(batch.num_rows)
-                        ],
-                    )
-
-            batches.append(batch)
-
-        table = pa.Table.from_batches(batches)
         write_deltalake(
             table_or_uri=args.dest_path,
-            data=table,
+            data=dest_table,
             partition_by=args.delta_partition_by,
             mode="append",
             schema_mode="merge",
             configuration=delta_configurations,
             storage_options=delta_storage_options,
-            target_file_size=1024 * 1024 * 256,
+            target_file_size=args.delta_target_file_size,
             writer_properties=delta_writer_properties,
             post_commithook_properties=delta_post_commithook_properties,
         )
         print(
-            f"[{repeat_idx}] Written to DeltaLake({args.dest_path}), number of rows: {table.num_rows} at {datetime.now(UTC).isoformat()}"
+            f"[{repeat_idx}] Written to DeltaLake({args.dest_path}), number of rows: {dest_table.num_rows} at {datetime.now(timezone.utc).isoformat()}"
         )
