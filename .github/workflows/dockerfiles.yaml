@@ -6,30 +6,35 @@ on:
   workflow_call:
     inputs:
       build_group:
-        description: 'Github runners tag'
+        description: "Github runners tag"
         type: string
         required: false
         default: self-hosted
       image:
-        description: 'Docker image name'
+        description: "Docker image name"
         type: string
         required: true
       path:
-        description: 'Path to Dockerfile'
+        description: "Path to Dockerfile"
         type: string
         required: true
       build_timeout:
-        description: 'Build timeout minutes'
+        description: "Build timeout minutes"
         type: number
         required: false
         default: 3600
+      send_notify:
+        description: "Send Slack notification"
+        type: boolean
+        required: false
+        default: true
     secrets:
       DOCKERHUB_USERNAME:
         required: true
       DOCKERHUB_PASSWORD:
         required: true
       SLACK_WEBHOOK_URL:
-        required: true
+        required: false
 
 jobs:
   build:
@@ -93,10 +98,10 @@ jobs:
   slack:
     runs-on:
       group: ${{ inputs.build_group }}
-    if: ${{ always() }}
+    if: ${{ always() && inputs.send_notify }}
     needs: [build]
     env:
-      TITLE_MESSAGE: ':white_circle: *Build Unknown*'
+      TITLE_MESSAGE: ":white_circle: *Build Unknown*"
     steps:
       - name: Check if build was successful
         id: check

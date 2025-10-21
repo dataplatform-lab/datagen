@@ -11,8 +11,9 @@ jobs:
   all:
     uses: ./.github/workflows/dockerfiles.yaml
     with:
-      image: ingkle/datagen
+      image: bluezery/datagen
       path: ./
+      send_notify: false
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
