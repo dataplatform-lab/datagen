@@ -38,8 +38,9 @@ on:
 
 jobs:
   build:
-    runs-on:
-      group: ${{ inputs.build_group }}
+    # runs-on:
+    #   group: ${{ inputs.build_group }}
+    runs-on: ubuntu-latest
     outputs:
       image_version: ${{ steps.meta.outputs.version }}
       image_id: ${{ steps.build_push.outputs.imageid }}
@@ -96,8 +97,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
   slack:
-    runs-on:
-      group: ${{ inputs.build_group }}
+    # runs-on:
+    #   group: ${{ inputs.build_group }}
+    runs-on: ubuntu-latest
     if: ${{ always() && inputs.send_notify }}
     needs: [build]
     env:
