@@ -5,7 +5,7 @@ import os
 from collections.abc import Callable
 from datetime import date
 from io import StringIO
-from typing import Literal, Protocol
+from typing import Literal, Protocol, Self
 from urllib.parse import urlparse
 
 import boto3
@@ -20,7 +20,13 @@ from fastnumbers import check_float
 s3_config = Config(connect_timeout=30, read_timeout=30, retries={"max_attempts": 0})
 
 
-def download_s3file(filepath: str, accesskey: str, secretkey: str, endpoint: str):
+def download_s3file(
+    filepath: str,
+    accesskey: str,
+    secretkey: str,
+    endpoint: str | None,
+    region: str = "ap-northeast-2",
+) -> str:
     logging.info("Downloading file %s from S3... %s", filepath, endpoint)
     tok = urlparse(filepath)
 
@@ -32,8 +38,11 @@ def download_s3file(filepath: str, accesskey: str, secretkey: str, endpoint: str
         aws_access_key_id=accesskey,
         aws_secret_access_key=secretkey,
         aws_session_token=None,
-        region_name="ap-northeast-2",
+        region_name=region,
     )
+
+    if endpoint and "amazonaws.com" in endpoint:
+        endpoint = None
 
     s3 = session.client(service_name="s3", endpoint_url=endpoint, config=s3_config)
     meta_data = s3.head_object(Bucket=src_bucket, Key=src_key)
@@ -170,22 +179,25 @@ def load_rows(
 class LoadAny(Protocol):
     def __init__(self, filepath: str): ...
 
-    def __enter__(self): ...
+    def __enter__(self) -> Self:
+        return self
 
     def __exit__(self, type, value, trace_back): ...
 
     def rewind(self): ...
 
-    def __iter__(self): ...
+    def __iter__(self) -> Self:
+        return self
 
-    def __next__(self): ...
+    def __next__(self) -> dict:
+        return {}
 
 
 class LoadBson:
     def __init__(self, filepath: str):
         self.io = open(filepath, "rb")
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self.iter = bson.decode_file_iter(self.io)
         return self
 
@@ -196,19 +208,18 @@ class LoadBson:
         self.io.seek(0)
         self.iter = bson.decode_file_iter(self.io)
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> dict:
         return next(self.iter)
 
 
 class LoadJson:
     def __init__(self, filepath: str):
-        self.json
         self.io = open(filepath, encoding="utf-8-sig")
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self.json = orjson.loads(self.io.read())
         if isinstance(self.json, list):
             self.iter = iter(self.json)
@@ -226,10 +237,10 @@ class LoadJson:
         else:
             self.iter = iter([self.json])
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> dict:
         return next(self.iter)
 
 
@@ -237,7 +248,7 @@ class LoadJsonl:
     def __init__(self, filepath: str):
         self.io = open(filepath, encoding="utf-8-sig")
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, type, value, trace_back):
@@ -246,10 +257,10 @@ class LoadJsonl:
     def rewind(self):
         self.io.seek(0)
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> dict:
         line = self.io.readline()
         if not line:
             raise StopIteration
@@ -273,7 +284,7 @@ class LoadParquet:
             batch_size=self.batch_size
         )
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, type, value, trace_back): ...
@@ -283,7 +294,7 @@ class LoadParquet:
             batch_size=self.batch_size
         )
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
     def __next__(self):
@@ -301,7 +312,7 @@ class LoadCSV:
     def __init__(self, filepath: str):
         self.io = open(filepath, encoding="utf-8-sig")
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self.headers = self.io.readline().strip().split(",")
         return self
 
@@ -312,12 +323,27 @@ class LoadCSV:
         self.io.seek(0)
         self.headers = self.io.readline().strip().split(",")
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> dict:
         line = self.io.readline()
         if not line:
             raise StopIteration
 
         return csv_loads(line, self.headers)
+
+
+def get_loader(filepath: str, input_type: str) -> LoadAny:
+    if input_type == "bson":
+        return LoadBson(filepath)
+    if input_type == "json":
+        return LoadJson(filepath)
+    elif input_type == "jsonl":
+        return LoadJsonl(filepath)
+    # elif input_type == "parquet":
+    #     return LoadParquet(filepath)
+    elif input_type == "csv":
+        return LoadCSV(filepath)
+    else:
+        raise RuntimeError(f"Unsupported input type: {input_type}")

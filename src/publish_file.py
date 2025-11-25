@@ -15,7 +15,7 @@ from utils.nazare import (
     edge_row_encode,
     nz_pipeline_create,
 )
-from utils.utils import LoadRows, download_s3file, encode, eval_create_func
+from utils.utils import download_s3file, encode, eval_create_func, get_loader
 
 
 def _cleanup(mqttc: mqtt.Client):
@@ -324,7 +324,8 @@ if __name__ == "__main__":
 
     elapsed = 0
     report_count = 0
-    with LoadRows(filepath, args.input_type) as rows:
+
+    with get_loader(args.input_filepath, args.input_type) as rows:
         while True:
             start_time = datetime.now(UTC)
             for _ in range(args.rate):

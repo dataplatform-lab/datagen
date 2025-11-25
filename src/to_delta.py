@@ -147,7 +147,7 @@ if __name__ == "__main__":
         delta_storage_options = {
             "AWS_ACCESS_KEY_ID": args.s3_accesskey,
             "AWS_SECRET_ACCESS_KEY": args.s3_secretkey,
-            "AWS_REGION": "ap-northeast-2",
+            "AWS_REGION": args.s3_region,
             "AWS_S3_ALLOW_UNSAFE_RENAME": "true",
             "AWS_ALLOW_HTTP": (
                 "true" if args.s3_endpoint.startswith("http") else "false"

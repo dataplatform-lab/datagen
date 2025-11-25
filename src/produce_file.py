@@ -20,7 +20,7 @@ from utils.nazare import (
     edge_row_encode,
     nz_pipeline_create,
 )
-from utils.utils import LoadRows, download_s3file, encode, eval_create_func
+from utils.utils import download_s3file, encode, eval_create_func, get_loader
 
 
 def _cleanup(producer: Producer):
@@ -133,14 +133,23 @@ if __name__ == "__main__":
     )
     parser.add_argument("--kafka-key", help="Kafka partition key")
 
-    # File
+    # S3 parameters
     parser.add_argument(
         "--s3-endpoint",
-        help="S3 url",
-        default="http://rook-ceph-rgw-ceph-objectstore.rook-ceph.svc.cluster.local:80",
+        help="S3 endpoint",
+        default="https://s3.amazonaws.com",
     )
     parser.add_argument("--s3-accesskey", help="S3 accesskey")
     parser.add_argument("--s3-secretkey", help="S3 secretkey")
+    parser.add_argument("--s3-region", help="S3 region", default="ap-northeast-2")
+    parser.add_argument(
+        "--s3-allow-unsafe-rename",
+        action=argparse.BooleanOptionalAction,
+        help="S3 allow unsafe rename",
+        default=True,
+    )
+
+    # File
     parser.add_argument("--input-filepath", help="file to be produced", required=True)
     parser.add_argument(
         "--input-type",
@@ -175,21 +184,18 @@ if __name__ == "__main__":
         default=True,
     )
 
-    # Rate
+    # Rate and Interval
+    parser.add_argument(
+        "--report-interval",
+        help="Delivery report interval (same as rate as default)",
+        type=int,
+    )
     parser.add_argument(
         "--rate",
         help="Number of records for each loop",
         type=int,
         default=1,
     )
-    parser.add_argument(
-        "--report-interval",
-        help="Delivery report interval",
-        type=int,
-        default=10,
-    )
-
-    # Record interval
     parser.add_argument(
         "--interval", help="Record interval in seconds", type=float, default=1.0
     )
@@ -271,12 +277,18 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)-8s %(name)-12s: %(message)s",
     )
 
+    if args.report_interval is None:
+        args.report_interval = args.rate
     schema_file = None
     if args.nz_schema_file and args.nz_schema_file_type:
         schema_file = args.nz_schema_file
         if schema_file.startswith("s3a://"):
             schema_file = download_s3file(
-                schema_file, args.s3_accesskey, args.s3_secretkey, args.s3_endpoint
+                schema_file,
+                args.s3_accesskey,
+                args.s3_secretkey,
+                args.s3_endpoint,
+                args.s3_region,
             )
 
     if args.nz_create_pipeline:
@@ -334,7 +346,11 @@ if __name__ == "__main__":
     filepath = args.input_filepath
     if filepath.startswith("s3a://"):
         filepath = download_s3file(
-            filepath, args.s3_accesskey, args.s3_secretkey, args.s3_endpoint
+            filepath,
+            args.s3_accesskey,
+            args.s3_secretkey,
+            args.s3_endpoint,
+            args.s3_region,
         )
 
     # https://docs.confluent.io/platform/current/installation/configuration/producer-configs.html
@@ -380,17 +396,17 @@ if __name__ == "__main__":
     atexit.register(_cleanup, producer=producer)
 
     elapsed = 0
-    with LoadRows(filepath, args.input_type) as rows:
+    with get_loader(filepath, args.input_type) as loader:
         while True:
             start_time = datetime.now(UTC)
             for _ in range(args.rate):
                 ts = start_time + timedelta(seconds=elapsed)
 
                 try:
-                    row = next(rows)
+                    row = next(loader)
                 except StopIteration:
-                    rows.rewind()
-                    row = next(rows)
+                    loader.rewind()
+                    row = next(loader)
                 row, interval = tf.transform(row, ts, args.interval)
                 row = row | custom_row
 
